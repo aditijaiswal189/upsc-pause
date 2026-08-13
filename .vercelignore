@@ -1,0 +1,14 @@
+# Nothing here should ever reach the CDN.
+
+# 4.4 MB of source PNGs — only the AVIF/WebP conversions in site/assets ship.
+parked/
+
+# The presence Worker deploys separately via wrangler. If it were uploaded here
+# its source would be publicly readable.
+presence-server/
+
+# Local dev server.
+serve.mjs
+.claude/
+
+.DS_Store
