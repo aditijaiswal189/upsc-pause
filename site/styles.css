@@ -1,0 +1,222 @@
+/* संकल्प लाइब्रेरी — a room to sit in.
+   Tone rule: quiet, never motivational. Nothing here should push. */
+
+:root {
+  --ink: #e7ecf4;
+  --dim: #93a2b8;
+  --glass: rgba(12, 16, 23, 0.66);
+  --edge: rgba(255, 255, 255, 0.14);
+  --warm: #f0b872;
+}
+
+* { box-sizing: border-box; }
+
+/* Class-based `display` rules beat the UA stylesheet's [hidden] {display:none},
+   which silently un-hid the presence counter. For this page that is not a
+   cosmetic bug — it showed an em-dash where a real number of people belongs. */
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #05070a;
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif;
+  overflow: hidden;
+}
+
+/* ---------- the room ---------- */
+
+/* z-index:-1 painted this behind the body's own background colour, which made
+   the entire room invisible. Keep it at 0 and lift the chrome above it. */
+.scene { position: fixed; inset: 0; z-index: 0; }
+.scene svg { width: 100%; height: 100%; display: block; }
+.bar, .title, .dock { z-index: 2; }
+
+/* The real artwork, when present. Replaces the vector placeholder entirely. */
+.room-photo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  /* Biased hard to the bottom so the सीट १४ plate — the single strongest
+     recognition detail in the frame — stays in shot. It sits at ~92% of the
+     image height, so anything less than this crops it off entirely. */
+  object-position: 50% 88%;
+  display: block;
+}
+@media (orientation: portrait) {
+  /* Portrait crops more aggressively, so it needs to sit even lower. */
+  .room-photo { object-position: 50% 96%; }
+}
+
+/* Scrims, tuned to this photograph rather than generically.
+   The room is already dark, so the job here is local: lift contrast behind the
+   title, and knock back the notebook, which is the brightest thing in the frame
+   and sits exactly where the player pill lands. */
+.scene::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    /* behind the title */
+    radial-gradient(56% 32% at 50% 27%, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.22) 58%, transparent 100%),
+    /* top bar */
+    linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.12) 11%, transparent 18%),
+    /* The dock, over the lit notebook. Darkest band sits *under* the dock rather
+       than at the very bottom edge — the seat plate lives in that last strip and
+       a heavy gradient there crushes it back out of sight. */
+    linear-gradient(to top,
+      rgba(0,0,0,0.34) 0%,
+      rgba(0,0,0,0.42) 5%,
+      rgba(0,0,0,0.72) 13%,
+      rgba(0,0,0,0.40) 24%,
+      transparent 38%),
+    /* gentle overall vignette */
+    radial-gradient(132% 104% at 50% 56%, transparent 42%, rgba(0,0,0,0.42) 100%);
+}
+
+/* Everything below is deliberately slow. Fast motion in a rest space reads as
+   urgency, which is the one feeling this page exists to avoid. */
+
+.fanblades { transform-origin: 0 0; animation: spin 2.4s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.tube { animation: flicker 9s ease-in-out infinite; }
+@keyframes flicker {
+  0%, 96%, 100% { opacity: 1; }
+  97% { opacity: 0.86; }
+  98% { opacity: 1; }
+  98.6% { opacity: 0.9; }
+}
+
+.rain { animation: fall 0.85s linear infinite; }
+@keyframes fall { from { transform: translateY(-30px); } to { transform: translateY(360px); } }
+
+.citylights { animation: twinkle 7s ease-in-out infinite; }
+@keyframes twinkle { 0%, 100% { opacity: 0.85; } 50% { opacity: 0.55; } }
+
+.steam { animation: rise 6s ease-in-out infinite; }
+.steam.s2 { animation-duration: 7.5s; animation-delay: -2s; }
+@keyframes rise {
+  0%, 100% { opacity: 0.06; transform: translateY(4px); }
+  50% { opacity: 0.3; transform: translateY(-6px); }
+}
+
+.lampcone { animation: breathe 11s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { opacity: 0.42; } 50% { opacity: 0.56; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fanblades, .rain, .tube, .citylights, .steam, .lampcone { animation: none; }
+}
+
+/* ---------- chrome ---------- */
+
+.bar {
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 20px 12px;
+  font-size: 13px; color: var(--dim);
+}
+.bar .left { display: flex; align-items: center; gap: 16px; }
+.presence { display: inline-flex; align-items: center; gap: 7px; }
+.presence b { color: var(--ink); font-weight: 600; }
+.dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #57d98a;
+  box-shadow: 0 0 0 0 rgba(87, 217, 138, 0.5);
+  animation: pulse 2.8s ease-out infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(87,217,138,0.45); }
+  70%, 100% { box-shadow: 0 0 0 9px rgba(87,217,138,0); }
+}
+.bar a { color: var(--dim); text-decoration: none; }
+.bar a:hover { color: var(--ink); }
+
+.title {
+  position: fixed; left: 0; right: 0; top: 16vh;
+  text-align: center; pointer-events: none; padding: 0 20px;
+}
+.title h1 {
+  margin: 0;
+  font-size: clamp(52px, 12vw, 128px);
+  line-height: 0.94;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #f6efe2;
+  text-shadow: 0 4px 40px rgba(0,0,0,0.6);
+}
+.title .line {
+  margin: 22px 0 0;
+  font-size: clamp(15px, 3.6vw, 19px);
+  color: rgba(231, 236, 244, 0.72);
+  text-shadow: 0 2px 20px rgba(0,0,0,0.7);
+}
+
+/* ---------- dock ---------- */
+
+.dock {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  /* Lifted off the bottom edge so a strip of desk — and the seat plate — stays
+     visible beneath the dock rather than being covered by it. */
+  padding: 0 16px calc(78px + env(safe-area-inset-bottom));
+}
+.pill {
+  background: var(--glass);
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-radius: 999px;
+  /* The dock sits over the lit notebook, which is the brightest part of the
+     photograph. Without a shadow the pill dissolves into it. */
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.45);
+}
+.player {
+  display: flex; align-items: center; gap: 14px;
+  width: min(560px, 100%); padding: 10px 14px 10px 10px;
+}
+.cover { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+.meta { flex: 1; min-width: 0; }
+.track {
+  font-size: 14px; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.artist {
+  font-size: 12px; color: var(--dim); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; margin-top: 1px;
+}
+.bar-wrap { height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; margin-top: 7px; }
+.bar-fill { height: 100%; width: 0; background: var(--warm); border-radius: 2px; transition: width 0.4s linear; }
+
+.controls { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.controls button {
+  background: none; border: 0; color: var(--ink); cursor: pointer;
+  font-size: 15px; padding: 7px; line-height: 1; border-radius: 50%;
+}
+.controls button:hover { background: rgba(255,255,255,0.08); }
+.controls .primary {
+  background: #f4f6fa; color: #10131a; width: 38px; height: 38px;
+  display: grid; place-items: center; font-size: 13px;
+}
+.controls .primary:hover { background: #fff; }
+
+.row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; flex-wrap: wrap; justify-content: center; }
+.chip {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--edge);
+  color: var(--ink); border-radius: 999px; padding: 7px 14px;
+  font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.chip:hover { background: rgba(255,255,255,0.1); }
+.chip[aria-pressed="true"] { background: rgba(240,184,114,0.16); border-color: rgba(240,184,114,0.4); color: var(--warm); }
+.chip.active { background: rgba(240,184,114,0.16); border-color: rgba(240,184,114,0.4); color: var(--warm); }
+.timer { font: 600 14px ui-monospace, Menlo, monospace; color: var(--warm); padding: 0 8px; }
+
+/* The YouTube iframe is audio only — kept in the layout but visually removed,
+   never display:none, which suspends playback in some browsers. */
+.yt-host {
+  position: fixed; width: 1px; height: 1px; opacity: 0;
+  pointer-events: none; left: -9999px; top: 0;
+}
+
+@media (max-width: 520px) {
+  .title { top: 12vh; }
+  .cover { width: 42px; height: 42px; }
+}
