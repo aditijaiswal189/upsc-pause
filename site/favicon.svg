@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- A glass of chai. Has to survive being 16px wide, so: one shape, one
+       highlight, high contrast against both light and dark browser chrome. -->
+  <defs>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.55">
+      <stop offset="0" stop-color="#ffb45c" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffb45c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0d1017"/>
+  <circle cx="32" cy="30" r="26" fill="url(#glow)"/>
+  <path d="M20 16 L23 50 Q23 53 26 53 L38 53 Q41 53 41 50 L44 16 Z" fill="#c98a4b"/>
+  <path d="M21.6 22 L23.6 47 Q23.7 49.5 26 49.5 L38 49.5 Q40.3 49.5 40.4 47 L42.4 22 Z" fill="#e89b46"/>
+  <ellipse cx="32" cy="22" rx="10.4" ry="2.6" fill="#f6c27a"/>
+  <path d="M25 27 L26.4 44" stroke="#ffe0b0" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round"/>
+</svg>

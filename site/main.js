@@ -7,31 +7,19 @@ import { TRACKS, LINES, PLAYLIST_LINKS, PRESENCE_ENDPOINT } from './tracks.js';
 const $ = (id) => document.getElementById(id);
 
 /* ---------- artwork ---------- */
-// The vector room is a placeholder; these replace it. See ART.md.
 //
-// Declared explicitly by orientation rather than probed by file extension. The
-// earlier version tried .avif/.webp/.jpg/.png in order and picked whichever
-// existed first — which meant a portrait file named .jpg beat the landscape
-// .png, and desktop got a portrait image cropped to a letterbox slice.
-// Extension was never the thing that mattered; shape is.
-// Within an orientation the list is a FORMAT fallback, best first — that is
-// safe, because every entry is the same picture at the same shape. What is not
-// safe is falling back across orientations, which is what the old
-// probe-by-extension version did.
-// AVIF then WebP. The source PNGs are deliberately NOT shipped — they are 4.4 MB
-// between them and live in parked/art-sources/. Every browser in use supports
-// WebP, so the pair below is a complete fallback chain.
-const ARTWORK = {
-  landscape: ['./assets/room.avif', './assets/room.webp'],
-  portrait:  ['./assets/room-portrait.avif', './assets/room-portrait.webp']
-};
-
-// A decodable file is not the same as a usable one. `sips` will happily emit an
-// AVIF that is entirely black — valid container, correct dimensions, fires
-// `onload` — and the page then shows nothing with no error anywhere. (Cause, for
-// the record: an odd pixel width breaks chroma subsampling in the AV1 encoder.
-// Re-encode at an even width.) So sample the decoded pixels before accepting it.
-function looksBlank(img) {
+// The picture element in index.html does the loading and the orientation
+// choice. This is only a sanity check, because a decodable file is not the same
+// as a usable one: `sips` will happily emit an AVIF that is entirely black —
+// valid container, correct dimensions, fires `onload` — and the page then shows
+// nothing, with no error anywhere. (Cause, for the record: an odd pixel width
+// breaks chroma subsampling in the AV1 encoder. Re-encode at an even width.)
+//
+// It only warns. Swapping sources at runtime is what used to delay the artwork
+// until after main.js had parsed, which is exactly the flash we removed.
+function checkArtwork() {
+  const img = $('roomPhoto');
+  if (!img.naturalWidth) return;
   try {
     const c = document.createElement('canvas');
     c.width = 32; c.height = 32;
@@ -43,48 +31,11 @@ function looksBlank(img) {
       const v = (d[i] + d[i + 1] + d[i + 2]) / 3;
       if (v > max) max = v;
     }
-    return max < 8;              // the room is dark, but never *this* dark
-  } catch {
-    return false;                // canvas unavailable: trust the decode
-  }
+    if (max < 8) console.warn(`[artwork] ${img.currentSrc} decoded to a blank image — re-encode it at an even pixel width`);
+  } catch { /* canvas unavailable; nothing to check */ }
 }
-
-(function loadArtwork() {
-  const img = $('roomPhoto');
-  const portraitQ = matchMedia('(orientation: portrait)');
-  let currentSrc = null;
-
-  function pick() {
-    const list = portraitQ.matches ? ARTWORK.portrait : ARTWORK.landscape;
-    let i = 0;
-
-    (function attempt() {
-      if (i >= list.length) {
-        console.warn('[artwork] no usable file; keeping the vector placeholder');
-        return;
-      }
-      const src = list[i++];
-      if (src === currentSrc) return;              // already showing it
-      const probe = new Image();
-      probe.onload = () => {
-        if (looksBlank(probe)) {
-          console.warn(`[artwork] ${src} decoded to a blank image — skipping`);
-          attempt();
-          return;
-        }
-        currentSrc = src;
-        img.src = src;
-        img.hidden = false;
-        $('roomVector').style.display = 'none';
-      };
-      probe.onerror = attempt;
-      probe.src = src;
-    })();
-  }
-
-  pick();
-  portraitQ.addEventListener('change', pick);
-})();
+const roomImg = $('roomPhoto');
+roomImg.complete ? checkArtwork() : roomImg.addEventListener('load', checkArtwork, { once: true });
 
 /* ---------- clock ---------- */
 
@@ -253,6 +204,14 @@ async function pollPresence() {
     const res = await fetch(url, { cache: 'no-store' });
     const { count } = await res.json();
     if (typeof count !== 'number') return;
+
+    // The count includes you. Showing "1 साथ में" to someone sitting alone at
+    // 3am says "you are the only one here" — the exact opposite of the point.
+    // Below two people, say nothing at all; silence is kinder than a 1.
+    if (count < 2) {
+      $('presence').hidden = true;
+      return;
+    }
     $('onlineCount').textContent = count;
     $('presence').hidden = false;
   } catch {
@@ -260,9 +219,11 @@ async function pollPresence() {
   }
 }
 pollPresence();
-// Must be comfortably under the server's 60s staleness window, or people get
-// dropped from the count between their own heartbeats.
-setInterval(pollPresence, 20000);
+// Must be comfortably under the server's 150s staleness window, or people get
+// dropped from the count between their own heartbeats. Kept at 60s rather than
+// anything tighter because every beat costs a Durable Object request against a
+// 1M/month free tier — see the note in presence-server/presence-worker.js.
+setInterval(pollPresence, 60000);
 
 // Test hook, same pattern as the flight prototype.
 window.__room = { player, startTimer, stopTimer, finishTimer, setLine };

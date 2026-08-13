@@ -146,4 +146,4 @@ export const LINES = [
 //
 // Wrangler prints a URL like https://sankalp-presence.<you>.workers.dev — paste
 // it below and reload. That's the whole setup.
-export const PRESENCE_ENDPOINT = "";
+export const PRESENCE_ENDPOINT = "https://sankalp-presence.aditijaiswal.workers.dev";

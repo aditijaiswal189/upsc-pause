@@ -3,11 +3,11 @@
 **This is the product.** Everything else in this folder is about 400 lines of
 plumbing. The illustration is what makes someone stop and send the link.
 
-The vector room currently on screen is a **placeholder**. It's flat SVG, and flat
-SVG reads as a diagram no matter how much is piled onto it — every edge is equally
-sharp, every surface is a solid fill. Saloon.wtf doesn't do this. Its entire visual
-is a single raster illustration, `bg.avif`, 365 KB, with painterly texture and real
-lighting. That's why it feels like a place.
+There is no vector placeholder any more. There was one — flat SVG — and it read as
+a diagram no matter how much was piled onto it: every edge equally sharp, every
+surface a solid fill. It has been deleted, because it only ever existed to be
+replaced, and while it waited to be replaced it was what flashed on screen during
+every page load.
 
 ## Two images, not one
 
@@ -17,14 +17,15 @@ the desk pushed off the bottom. So the page loads **artwork by orientation**,
 declared in `main.js`:
 
 ```
-landscape (desktop)   assets/room.avif  →  .webp  →  .png
-portrait  (phones)    assets/room-portrait.avif  →  .webp  →  assets/room.jpg
+landscape (desktop)   assets/room.avif  →  assets/room.webp
+portrait  (phones)    assets/room-portrait.avif  →  assets/room-portrait.webp
 ```
 
-Within an orientation the list is a *format* fallback — same picture, same shape,
-best format first. It never falls back across orientations, which is the mistake the
-first version made: it probed by file extension, so a portrait `.jpg` beat the
-landscape `.png` and desktop got a letterboxed slice.
+This is a `<picture>` element in `index.html`, not JavaScript. Orientation is chosen
+by `media`, format by `type`, and the browser's preload scanner starts the download
+while it is still parsing the head. Loading it from JS meant the request could not
+start until `main.js` had run — about 25 ms later on localhost, but the length of a
+whole image download on mobile data, with the placeholder on screen throughout.
 
 The page applies its own vignette, title scrim and bottom gradient, so don't bake
 those in — a raw generated image is almost always too bright and too evenly lit for
