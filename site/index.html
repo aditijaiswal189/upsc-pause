@@ -126,6 +126,17 @@
       <button id="play" class="primary" aria-label="Play">▶</button>
       <button id="next" aria-label="Next">⏭</button>
     </div>
+    <!-- Volume. A phone has a hardware rocker and this page is the only thing
+         making a sound there, so the slider is hidden below 520px — the dock
+         cannot fit it at 360px without crushing the track title. On a desktop
+         there is no per-tab volume at all, which is where this is needed. -->
+    <div class="volume">
+      <svg class="vol-ico" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+        <path d="M4 9v6h4l5 4V5L8 9H4z"/>
+        <path d="M16.4 8.6a4.5 4.5 0 0 1 0 6.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <input id="volume" class="vol" type="range" min="0" max="100" step="5" value="100" aria-label="Volume">
+    </div>
   </div>
 
   <div class="pill row">
@@ -135,8 +146,14 @@
       <button class="segbtn" data-mood="josh" aria-pressed="true">जोश</button>
       <button class="segbtn" data-mood="shaant" aria-pressed="false">शांत</button>
     </span>
-    <button id="t15" class="chip">15 मिनट</button>
-    <button id="t25" class="chip">25 मिनट</button>
+    <!-- A segment rather than three chips: 5 was asked for, and three separate
+         chips wrapped the row onto two lines on a phone. -->
+    <span class="seg" id="timers" role="group" aria-label="टाइमर">
+      <button class="segbtn" data-min="5" aria-pressed="false">5</button>
+      <button class="segbtn" data-min="15" aria-pressed="false">15</button>
+      <button class="segbtn" data-min="25" aria-pressed="false">25</button>
+      <span class="segunit">मिनट</span>
+    </span>
     <span class="timer" id="timer" hidden>—</span>
   </div>
 
@@ -145,6 +162,11 @@
 </footer>
 
 <div id="ytHost" class="yt-host"></div>
+
+<!-- Everything on this page changes silently: the track, the countdown, the
+     "हो गया". For someone on a screen reader that means the page never tells
+     them anything happened. This is where main.js says it out loud. -->
+<div id="say" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script type="module" src="./main.js"></script>
 </body>

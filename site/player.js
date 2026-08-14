@@ -36,11 +36,20 @@ export function createPlayer({ hostId, tracks, onChange }) {
   // below reads it through the closure rather than capturing a snapshot.
 
   const current = () => tracks[index] || null;
-  const emit = () => onChange?.({
-    track: current(), index, ready, playing, failed,
-    duration: ready && yt?.getDuration ? yt.getDuration() : 0,
-    position: ready && yt?.getCurrentTime ? yt.getCurrentTime() : 0
-  });
+  // A track may declare `start` (seconds) to skip an intro. Everything the UI
+  // sees is relative to that, so a song beginning at 3:35 shows an empty
+  // progress bar rather than one already two-thirds full.
+  const emit = () => {
+    const t = current();
+    const from = t?.start || 0;
+    const rawDur = ready && yt?.getDuration ? yt.getDuration() : 0;
+    const rawPos = ready && yt?.getCurrentTime ? yt.getCurrentTime() : 0;
+    onChange?.({
+      track: t, index, ready, playing, failed,
+      duration: Math.max(0, rawDur - from),
+      position: Math.max(0, rawPos - from)
+    });
+  };
 
   async function init() {
     if (!tracks.length) { failed = true; emit(); return; }
@@ -52,7 +61,8 @@ export function createPlayer({ hostId, tracks, onChange }) {
         // Matches the reference: no chrome, no keyboard, no related videos.
         playerVars: {
           controls: 0, disablekb: 1, playsinline: 1,
-          rel: 0, modestbranding: 1, iv_load_policy: 3
+          rel: 0, modestbranding: 1, iv_load_policy: 3,
+          ...(tracks[0].start ? { start: tracks[0].start } : {})
         },
         events: {
           onReady: () => { ready = true; emit(); },
@@ -73,7 +83,9 @@ export function createPlayer({ hostId, tracks, onChange }) {
   function load(i, autoplay) {
     if (!ready || !tracks.length) return;
     index = (i + tracks.length) % tracks.length;
-    yt[autoplay ? 'loadVideoById' : 'cueVideoById'](tracks[index].id);
+    const t = tracks[index];
+    const args = t.start ? { videoId: t.id, startSeconds: t.start } : { videoId: t.id };
+    yt[autoplay ? 'loadVideoById' : 'cueVideoById'](args);
     emit();
   }
 
@@ -97,7 +109,9 @@ export function createPlayer({ hostId, tracks, onChange }) {
       index = 0;
       failed = false;
       if (ready) {
-        yt[wasPlaying ? 'loadVideoById' : 'cueVideoById'](tracks[0].id);
+        const t = tracks[0];
+        const args = t.start ? { videoId: t.id, startSeconds: t.start } : { videoId: t.id };
+        yt[wasPlaying ? 'loadVideoById' : 'cueVideoById'](args);
       }
       emit();
     },
@@ -113,16 +127,30 @@ export function createPlayer({ hostId, tracks, onChange }) {
       if (!ready || !yt.getDuration) return;
       const d = yt.getDuration();
       if (!d) return;
-      yt.seekTo(Math.max(0, Math.min(1, fraction)) * d, true);
+      const from = current()?.start || 0;
+      const f = Math.max(0, Math.min(1, fraction));
+      yt.seekTo(from + f * (d - from), true);
       emit();
     },
 
     // The URL of what is playing, for the "watch on YouTube" link.
     currentUrl() {
       const t = current();
-      return t ? `https://www.youtube.com/watch?v=${t.id}` : null;
+      if (!t) return null;
+      return t.start
+        ? `https://www.youtube.com/watch?v=${t.id}&t=${t.start}s`
+        : `https://www.youtube.com/watch?v=${t.id}`;
     },
-    setVolume(v) { if (ready) yt.setVolume(Math.round(v * 100)); },
+    // YouTube starts a player muted in some autoplay paths, and setVolume on a
+    // muted player changes a number nobody can hear. Unmute alongside it.
+    setVolume(v) {
+      if (!ready) return;
+      yt.setVolume(Math.round(v * 100));
+      if (v > 0 && yt.isMuted && yt.isMuted()) yt.unMute();
+    },
+    // Exposed so the actual player volume can be read back rather than assumed.
+    getVolume() { return ready && yt.getVolume ? yt.getVolume() : null; },
+    isMuted() { return ready && yt.isMuted ? yt.isMuted() : null; },
     poll() { if (ready) emit(); },
     get failed() { return failed; },
     get ready() { return ready; }

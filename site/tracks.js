@@ -86,7 +86,12 @@ export const JOSH = [
   { id: 'tqJyVIA8GVE', title: 'Zor Se Zor Laga',       artist: 'Khido Khundi' },
   { id: 'cF2yqyiJACk', title: 'Soorma Anthem',         artist: 'Shankar Mahadevan' },
   { id: 'M7ub-Fg92Zk', title: 'Thaan Liya',            artist: 'Dasvi · Sachin–Jigar' },
-  { id: 'VNdRK4YC4QA', title: 'Kholo Kholo',           artist: 'Taare Zameen Par · Shankar–Ehsaan–Loy' }
+  { id: 'VNdRK4YC4QA', title: 'Kholo Kholo',           artist: 'Taare Zameen Par · Shankar–Ehsaan–Loy' },
+  { id: '7_et2uhWWFM', title: 'Triumph',                artist: 'Tusshar Mallek' },
+  // `start` skips straight to the verse — the first 3½ minutes are the setup.
+  // The progress bar and the seek both treat 3:35 as zero, and the YouTube link
+  // lands there too.
+  { id: 'tcKTcEE7FXA', title: 'King vs EPR',            artist: 'Hustle 2.0 · rap battle', start: 215 }
 ];
 
 export const SHAANT = [
@@ -98,7 +103,9 @@ export const SHAANT = [
   { id: 'pxcRWdGKSko', title: 'Kyun Main Jaagoon',  artist: 'Patiala House · unplugged' },
   { id: 'wpx8xCC7ETM', title: 'See You Again',      artist: 'Swarnim Maharjan · flute' },
   { id: 'T94PHkuydcw', title: 'Kun Faya Kun',       artist: 'Rockstar · A.R. Rahman' },
-  { id: '3TndEMf6zws', title: 'Ye Honsla',          artist: 'Dor · Salim–Sulaiman' }
+  { id: '3TndEMf6zws', title: 'Ye Honsla',          artist: 'Dor · Salim–Sulaiman' },
+  { id: 'k-UQz3f7ZPI', title: 'Dhaaga',             artist: "TVF Aspirants · Nilotpal Bora" },
+  { id: 'EJf1x51LvMY', title: 'Aspirants Theme',    artist: 'TVF · background score' }
   // Room to grow. Instrumentals sit best here: bansuri, santoor, soft sitar,
   // rain-layered versions of anything above.
 ];

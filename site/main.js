@@ -7,6 +7,28 @@ import { THEMES, READY } from './themes.js';
 
 const $ = (id) => document.getElementById(id);
 
+// Checked in a few places rather than assumed. Someone who has asked their OS to
+// stop moving things has asked this page too.
+const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)');
+
+/* ---------- announcements ---------- */
+//
+// #say is a visually hidden aria-live region. Nothing on this page announces
+// itself otherwise — the track changes, the countdown ends, and a screen reader
+// says nothing at all, so the whole dock may as well not be there.
+//
+// Deliberately sparing. The player emits a change event every second (the poll
+// in the music section below), so anything wired in here has to fire on a real
+// transition or it becomes a voice reading the same line once a second.
+function say(text) {
+  const el = $('say');
+  // A live region does not re-announce a string identical to the one already in
+  // it. Clearing first is what makes a repeat audible — two 15-minute timers
+  // back to back, or replaying the track you are already on.
+  el.textContent = '';
+  setTimeout(() => { el.textContent = text; }, 100);
+}
+
 /* ---------- artwork ---------- */
 //
 // There is no <img> any more: the room is a CSS background chosen by
@@ -45,6 +67,14 @@ $('line').textContent = LINES[lineIndex];
 function setLine(text, lockMs = 0) {
   const el = $('line');
   if (lockMs) lineLockedUntil = Date.now() + lockMs;
+  // The crossfade is a 2.4s round trip on text someone may be part-way through
+  // reading. Under reduced motion, swap it and say nothing about it.
+  if (REDUCED_MOTION.matches) {
+    el.style.transition = 'none';
+    el.style.opacity = '1';
+    el.textContent = text;
+    return;
+  }
   el.style.transition = 'opacity 1.2s';
   el.style.opacity = '0';
   setTimeout(() => { el.textContent = text; el.style.opacity = '1'; }, 1200);
@@ -66,21 +96,26 @@ setInterval(() => {
 // The music keeps playing. Cutting it at the buzzer would be the single most
 // jarring thing this page could do.
 
-let timerEnd = null, timerHandle = null, activeBtn = null, finishHideHandle = null;
+let timerEnd = null, timerHandle = null, activeMin = null, finishHideHandle = null;
 
-function startTimer(minutes, btn) {
-  // Tapping the running chip again cancels it. This used to test for a
-  // `was-active` class that was never set anywhere, so a timer could be
-  // restarted but never stopped.
-  if (activeBtn === btn) { stopTimer(); return; }
+const timerBtns = () => document.querySelectorAll('#timers .segbtn');
+const paintTimerBtns = () => timerBtns().forEach((b) =>
+  b.setAttribute('aria-pressed', String(+b.dataset.min === activeMin)));
+
+function startTimer(minutes) {
+  // Tapping the running length again cancels it. This used to compare button
+  // elements against a `was-active` class that was never set, so a timer could
+  // be restarted but never stopped.
+  if (activeMin === minutes) { stopTimer(); return; }
 
   stopTimer();
   timerEnd = Date.now() + minutes * 60000;
-  activeBtn = btn;
-  btn.classList.add('active');
+  activeMin = minutes;
+  paintTimerBtns();
   $('timer').hidden = false;
   timerHandle = setInterval(paintTimer, 1000);
   paintTimer();
+  say(`${minutes} मिनट का टाइमर शुरू`);
 }
 
 function stopTimer() {
@@ -89,16 +124,18 @@ function stopTimer() {
   timerHandle = null;
   clearTimeout(finishHideHandle);
   $('timer').hidden = true;
-  activeBtn = null;
-  document.querySelectorAll('#t15, #t25').forEach((b) => b.classList.remove('active'));
+  const wasRunning = activeMin !== null;
+  activeMin = null;
+  paintTimerBtns();
+  if (wasRunning) say('टाइमर बंद');
 }
 
 function finishTimer() {
   clearInterval(timerHandle);
   timerHandle = null;
   timerEnd = null;
-  activeBtn = null;
-  document.querySelectorAll('#t15, #t25').forEach((b) => b.classList.remove('active'));
+  activeMin = null;
+  paintTimerBtns();
 
   // Un-hide explicitly rather than assuming the countdown was already on screen —
   // otherwise "हो गया" is set on a hidden element and nobody ever sees it.
@@ -108,6 +145,7 @@ function finishTimer() {
   finishHideHandle = setTimeout(() => { $('timer').hidden = true; }, 6000);
 
   setLine('बस। अब जो मन करे।', 90000);   // "That's it. Now whatever you feel like."
+  say('हो गया');
 }
 
 function paintTimer() {
@@ -119,8 +157,10 @@ function paintTimer() {
   $('timer').textContent = `${m}:${s}`;
 }
 
-$('t15').addEventListener('click', (e) => startTimer(15, e.currentTarget));
-$('t25').addEventListener('click', (e) => startTimer(25, e.currentTarget));
+$('timers').addEventListener('click', (e) => {
+  const b = e.target.closest('.segbtn');
+  if (b) startTimer(+b.dataset.min);
+});
 
 /* ---------- music ---------- */
 
@@ -129,6 +169,42 @@ const savedMood = (() => {
 })();
 let mood = MOODS[savedMood] ? savedMood : 'josh';
 let wasPlaying = false;
+
+// Announcement state. Declared up here because the onChange callback below
+// reads them, and it can fire the moment the YouTube API resolves.
+//
+// `userDrovePlayer` exists because a track is cued at load without anyone
+// asking for it. Announcing a song title to someone who has just opened the
+// page and pressed nothing is the live-region equivalent of autoplay.
+let lastSaidTrack = null;
+let userDrovePlayer = false;
+
+/* ---------- volume ---------- */
+// Defaults to 100 — that is what every visitor has had until now, and quietly
+// turning the music down on people who already know this page would read as a
+// bug. Only a value they set themselves is remembered.
+const VOLUME_KEY = 'sankalp.volume';
+let volumeApplied = false;
+
+// Zero is deliberately NOT a valid saved value — see the note on the input
+// handler. `> 0` also rescues anyone whose browser already stored a 0 before
+// this rule existed, who would otherwise stay silent forever.
+const savedVolume = (() => {
+  try {
+    const raw = localStorage.getItem(VOLUME_KEY);
+    if (raw === null) return null;
+    const v = Number(raw);
+    return Number.isFinite(v) && v > 0 && v <= 100 ? v : null;
+  } catch { return null; }
+})();
+// Drives the gradient stop that draws the filled part of the track. See the
+// note on `--vol` in styles.css for why WebKit needs this and Firefox does not.
+function paintVolume(v) {
+  $('volume').style.setProperty('--vol', `${v}%`);
+}
+
+$('volume').value = String(savedVolume ?? 100);
+paintVolume(savedVolume ?? 100);
 
 const player = createPlayer({
   hostId: 'ytHost',
@@ -146,6 +222,19 @@ const player = createPlayer({
     }
     $('trackTitle').textContent = track.title || '—';
     $('trackArtist').textContent = track.artist || '';
+
+    // setVolume is a no-op until the iframe is ready, so a saved volume has to
+    // wait for the first ready event rather than being applied at startup.
+    if (ready && !volumeApplied) {
+      volumeApplied = true;
+      player.setVolume(Number($('volume').value) / 100);
+    }
+
+    if (userDrovePlayer && track.id && track.id !== lastSaidTrack) {
+      lastSaidTrack = track.id;
+      say(track.artist ? `${track.title} — ${track.artist}` : track.title);
+    }
+
     // Close the list when playback STARTS — on the false→true edge only.
     // Testing `playing` alone closed it on every poll tick, so opening the list
     // while music was already running shut it again a second later: a blink.
@@ -153,6 +242,9 @@ const player = createPlayer({
     wasPlaying = playing;
 
     $('play').textContent = playing ? '❚❚' : '▶';
+    // The glyph swapped but the label never did, so a screen reader called this
+    // "Play" the entire time it was playing.
+    $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
     $('play').disabled = !ready;
     if (track.id) {
       const cover = $('cover');
@@ -225,13 +317,30 @@ $('listToggle').addEventListener('click', () => toggleList());
 $('tracklist').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-i]');
   if (!b) return;
+  userDrovePlayer = true;
   player.playIndex(+b.dataset.i);
   toggleList(false);
 });
 
-$('play').addEventListener('click', () => player.toggle());
-$('next').addEventListener('click', () => player.next());
-$('prev').addEventListener('click', () => player.prev());
+$('play').addEventListener('click', () => { userDrovePlayer = true; player.toggle(); });
+$('next').addEventListener('click', () => { userDrovePlayer = true; player.next(); });
+$('prev').addEventListener('click', () => { userDrovePlayer = true; player.prev(); });
+
+// `input`, not `change`: the volume should follow the thumb while it is being
+// dragged. It also fires on every arrow-key press, which is how this control
+// gets used without a mouse.
+$('volume').addEventListener('input', (e) => {
+  const v = Number(e.currentTarget.value);
+  player.setVolume(v / 100);
+  paintVolume(v);
+  // Zero is a mute for now, not a preference — so it is not written down.
+  // Persisting it meant one stray drag left every future visit silent while the
+  // play button insisted music was playing: a state with no visible cause and
+  // no obvious way out. Reloading after muting restores the last real level.
+  try {
+    if (v > 0) localStorage.setItem(VOLUME_KEY, String(v));
+  } catch {}
+});
 
 // PLAYLIST_LINKS is still honoured, but only as an override — if you make a
 // real YT Music playlist, that wins over the per-track link.
@@ -314,6 +423,7 @@ document.getElementById('moods').addEventListener('click', (e) => {
   const btn = e.target.closest('.segbtn');
   if (!btn || btn.dataset.mood === mood) return;
   mood = btn.dataset.mood;
+  userDrovePlayer = true;
   try { localStorage.setItem('sankalp.mood', mood); } catch {}
   paintMood();
   player.setTracks(MOODS[mood].tracks);

@@ -16,6 +16,42 @@
    cosmetic bug — it showed an em-dash where a real number of people belongs. */
 [hidden] { display: none !important; }
 
+/* Off-screen but still read aloud. Used for the live region that announces the
+   track and the timer, and for labelling controls that are only an icon.
+   `clip-path` rather than `display:none` or `visibility:hidden` — both of those
+   remove the element from the accessibility tree, which is the one thing this
+   must not do. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip-path: inset(50%);
+  overflow: hidden; white-space: nowrap;
+}
+
+/* ---------- focus ---------- */
+/* Every control here is a chromeless button sitting on a photograph, so the
+   default ring is either invisible against the artwork or absent entirely.
+   Tabbing through the dock showed nothing moving at all.
+   Warm rather than the usual blue: it is the only accent this page has, and it
+   holds up over the night room and the bright daylight ones alike.
+   `:focus-visible`, not `:focus`, so a mouse click does not leave a ring behind
+   on a page whose whole point is that it is quiet. */
+:focus-visible {
+  outline: 2px solid var(--warm);
+  outline-offset: 3px;
+}
+/* These sit tight against their neighbours — a 3px offset overlaps the button
+   next door and reads as two things being focused at once. */
+.controls button:focus-visible,
+.segbtn:focus-visible,
+.menu button:focus-visible,
+.list button:focus-visible,
+.metabtn:focus-visible {
+  outline-offset: 1px;
+  border-radius: 8px;
+}
+
 html, body {
   height: 100%;
   margin: 0;
@@ -150,6 +186,9 @@ html, body {
   0% { box-shadow: 0 0 0 0 rgba(87,217,138,0.45); }
   70%, 100% { box-shadow: 0 0 0 9px rgba(87,217,138,0); }
 }
+/* An infinite pulse in the corner of the eye is exactly what this setting
+   exists for. The dot stays — it is the "live" signal — it just stops moving. */
+@media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
 .bar a { color: var(--dim); text-decoration: none; }
 .bar a:hover { color: var(--ink); }
 
@@ -272,6 +311,43 @@ html, body {
 }
 .controls .primary:hover { background: #fff; }
 
+/* ---------- volume ---------- */
+/* A native range input, restyled. Native because it is the only control that
+   comes with keyboard support, screen-reader semantics and touch behaviour
+   already correct — a div with pointer handlers, which is what the progress bar
+   is, has none of that. */
+.volume { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; color: var(--dim); }
+.vol-ico { flex: 0 0 auto; opacity: 0.8; }
+.vol {
+  -webkit-appearance: none; appearance: none;
+  width: 62px; height: 18px;   /* 18px tall for the thumb, track drawn at 3px */
+  background: transparent; margin: 0; cursor: pointer;
+  /* Kept in sync with the value by main.js. Firefox has a real pseudo-element
+     for the filled part (::-moz-range-progress); WebKit has nothing, so there
+     the fill is a gradient stop and this is where its position comes from.
+     Without it the slider shows no level at all in Chrome and Safari — you can
+     only tell where it is by finding the thumb. */
+  --vol: 100%;
+  --vol-rest: rgba(255,255,255,0.2);
+}
+.vol:hover { --vol-rest: rgba(255,255,255,0.3); }
+.vol::-webkit-slider-runnable-track {
+  height: 3px; border-radius: 2px;
+  background: linear-gradient(to right,
+    var(--warm) 0 var(--vol), var(--vol-rest) var(--vol) 100%);
+}
+.vol::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; border: 0;
+  width: 11px; height: 11px; border-radius: 50%; background: var(--ink);
+  margin-top: -4px;            /* centres the thumb on the 3px track */
+}
+.vol::-moz-range-track { height: 3px; border-radius: 2px; background: var(--vol-rest); }
+.vol::-moz-range-progress { height: 3px; border-radius: 2px; background: var(--warm); }
+.vol::-moz-range-thumb {
+  width: 11px; height: 11px; border-radius: 50%; background: var(--ink); border: 0;
+}
+.vol:focus-visible { outline-offset: 1px; border-radius: 6px; }
+
 .row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; flex-wrap: wrap; justify-content: center; }
 .chip {
   background: rgba(255,255,255,0.05); border: 1px solid var(--edge);
@@ -296,6 +372,7 @@ html, body {
   transition: background 0.18s, color 0.18s;
 }
 .segbtn:hover { color: var(--ink); }
+.segunit { color: var(--dim); font-size: 11.5px; padding: 0 10px 0 4px; opacity: 0.75; }
 .segbtn[aria-pressed="true"] {
   background: rgba(240,184,114,0.18);
   color: var(--warm);
@@ -313,4 +390,14 @@ html, body {
 @media (max-width: 520px) {
   .title { top: 12vh; }
   .cover { width: 42px; height: 42px; }
+  /* See the note in index.html: hardware volume keys already cover this case,
+     and the slider costs the track title the width it needs. */
+  .volume { display: none; }
+}
+
+/* The two remaining animations. Neither is decorative enough to be worth
+   arguing about — the progress bar still moves, it just moves in steps. */
+@media (prefers-reduced-motion: reduce) {
+  .bar-fill { transition: none; }
+  .segbtn { transition: none; }
 }
