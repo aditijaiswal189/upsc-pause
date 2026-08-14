@@ -65,47 +65,48 @@
 // under an anthem without either fighting it or turning into a motivational
 // poster.
 
-export const TRACKS = [
-  { id: "c2f03oSSDAM", title: "UPSC Anthem", artist: "PW OnlyIAS" },
-  {
-    id: "LMfrk9E_oiU",
-    title: "De Mauka Zindagi",
-    artist: "TVF Aspirants · Nilotpal Bora",
-  },
-  { id: "x5fYTPvrz4g", title: "Manzar Hai Yeh Naya", artist: "Uri" },
-  { id: "9iIX4PBplAY", title: "Kar Har Maidaan Fateh", artist: "Sanju" },
-  { id: "sSsw7QPrUk0", title: "Lakshya", artist: "Shankar–Ehsaan–Loy" },
-  { id: "DmsOinqrPvQ", title: "Badal Pe Paon Hain", artist: "Chak De! India" },
-  { id: "Q3JMD4oaXlI", title: "Shaabaashiyaan", artist: "Mission Mangal" },
-  { id: "V0ejQDKE4w8", title: "Let's Crack It", artist: "Naezy · Dub Sharma" },
-  { id: "-LWbeZUyQe8", title: "Kachha Ghada", artist: "Rahgir" },
-  {
-    id: "0Rm2cajspwY",
-    title: "Sapne Re",
-    artist: "Secret Superstar · Amit Trivedi",
-  },
-  { id: "gg1tN-gkcwk", title: "Aarambh", artist: "Piyush Mishra · Gulaal" },
-  { id: "50q8wD6MXgI", title: "Bismil", artist: "Sukhwinder Singh · Haider" },
-  { id: "BKx_B1VZ2kw", title: "Ae Watan", artist: "Raazi · Sunidhi Chauhan" },
-  { id: "Ax0G_P2dSBw", title: "Zinda", artist: "Bhaag Milkha Bhaag" },
-  {
-    id: "pxcRWdGKSko",
-    title: "Kyun Main Jaagoon",
-    artist: "Patiala House · unplugged",
-  },
-  {
-    id: "wpx8xCC7ETM",
-    title: "See You Again",
-    artist: "Swarnim Maharjan · flute",
-  },
-  {
-    id: "T94PHkuydcw",
-    title: "Kun Faya Kun",
-    artist: "Rockstar · A.R. Rahman",
-  },
-  { id: "cF2yqyiJACk", title: "Soorma Anthem", artist: "Shankar Mahadevan" },
-  { id: "M7ub-Fg92Zk", title: "Thaan Liya", artist: "Dasvi · Sachin–Jigar" },
+// Two moods, because the honest answer to "anthems or calm?" is "depends who is
+// sitting there". JOSH is what most aspirants reach for. SHAANT is for the ones
+// who cannot think with someone shouting at them, and for 2am.
+//
+// Same rules for both: every id is a track you have actually listened to all the
+// way through, and every id is checked embeddable first.
+
+export const JOSH = [
+  { id: 'c2f03oSSDAM', title: 'UPSC Anthem',           artist: 'PW OnlyIAS' },
+  { id: 'x5fYTPvrz4g', title: 'Manzar Hai Yeh Naya',   artist: 'Uri' },
+  { id: '9iIX4PBplAY', title: 'Kar Har Maidaan Fateh', artist: 'Sanju' },
+  { id: 'sSsw7QPrUk0', title: 'Lakshya',               artist: 'Shankar–Ehsaan–Loy' },
+  { id: 'DmsOinqrPvQ', title: 'Badal Pe Paon Hain',    artist: 'Chak De! India' },
+  { id: 'Q3JMD4oaXlI', title: 'Shaabaashiyaan',        artist: 'Mission Mangal' },
+  { id: 'V0ejQDKE4w8', title: "Let's Crack It",        artist: 'Naezy · Dub Sharma' },
+  { id: 'gg1tN-gkcwk', title: 'Aarambh',               artist: 'Piyush Mishra · Gulaal' },
+  { id: '50q8wD6MXgI', title: 'Bismil',                artist: 'Sukhwinder Singh · Haider' },
+  { id: 'Ax0G_P2dSBw', title: 'Zinda',                 artist: 'Bhaag Milkha Bhaag' },
+  { id: 'tqJyVIA8GVE', title: 'Zor Se Zor Laga',       artist: 'Khido Khundi' },
+  { id: 'cF2yqyiJACk', title: 'Soorma Anthem',         artist: 'Shankar Mahadevan' },
+  { id: 'M7ub-Fg92Zk', title: 'Thaan Liya',            artist: 'Dasvi · Sachin–Jigar' },
+  { id: 'VNdRK4YC4QA', title: 'Kholo Kholo',           artist: 'Taare Zameen Par · Shankar–Ehsaan–Loy' }
 ];
+
+export const SHAANT = [
+  { id: 'LMfrk9E_oiU', title: 'De Mauka Zindagi',   artist: 'TVF Aspirants · Nilotpal Bora' },
+  { id: 'CaI0xNLpurM', title: 'Aashayein',          artist: 'Iqbal · KK' },
+  { id: '-LWbeZUyQe8', title: 'Kachha Ghada',       artist: 'Rahgir' },
+  { id: '0Rm2cajspwY', title: 'Sapne Re',           artist: 'Secret Superstar · Amit Trivedi' },
+  { id: 'BKx_B1VZ2kw', title: 'Ae Watan',           artist: 'Raazi · Sunidhi Chauhan' },
+  { id: 'pxcRWdGKSko', title: 'Kyun Main Jaagoon',  artist: 'Patiala House · unplugged' },
+  { id: 'wpx8xCC7ETM', title: 'See You Again',      artist: 'Swarnim Maharjan · flute' },
+  { id: 'T94PHkuydcw', title: 'Kun Faya Kun',       artist: 'Rockstar · A.R. Rahman' },
+  { id: '3TndEMf6zws', title: 'Ye Honsla',          artist: 'Dor · Salim–Sulaiman' }
+  // Room to grow. Instrumentals sit best here: bansuri, santoor, soft sitar,
+  // rain-layered versions of anything above.
+];
+
+export const MOODS = {
+  josh:   { label: 'जोश',  tracks: JOSH },
+  shaant: { label: 'शांत', tracks: SHAANT }
+};
 
 // Where the "listen properly" link points once you have a real playlist.
 export const PLAYLIST_LINKS = {
@@ -147,3 +148,20 @@ export const LINES = [
 // Wrangler prints a URL like https://sankalp-presence.<you>.workers.dev — paste
 // it below and reload. That's the whole setup.
 export const PRESENCE_ENDPOINT = "https://sankalp-presence.aditijaiswal.workers.dev";
+
+// Song suggestions — a "गाना सुझाओ" link at the bottom of the playlist.
+//
+// Left EMPTY on purpose: filling it publishes that address in the page source,
+// where scrapers will find it. I am not putting your personal inbox on a public
+// site without you deciding to.
+//
+// Recommended: make a throwaway address (upscpause.songs@gmail.com or similar)
+// and forward it to yourself. Then if it gets scraped you can drop it without
+// touching your real inbox.
+//
+// This is a plain `mailto:` — no backend, no form service, nothing to maintain,
+// and no personal data ever touches a server. The tradeoffs are that the address
+// is visible in the HTML, and that a visitor with no mail client configured
+// (common on phones) gets nothing when they tap. If it turns out people actually
+// use it, the better version is a small form posting to the presence Worker.
+export const SUGGEST_EMAIL = "upscpause.songs@gmail.com";

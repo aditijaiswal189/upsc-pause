@@ -27,53 +27,75 @@ html, body {
 
 /* ---------- the room ---------- */
 
-/* Base colour matches the artwork's darkest tone, so the moment before the
-   photo decodes reads as "the room, still loading" rather than as a flash of
-   something else. There is no placeholder illustration any more — it only ever
-   existed to be replaced, and replacing it was the flash. */
-.scene { position: fixed; inset: 0; z-index: 0; background: #0b0d12; }
-.bar, .title, .dock { z-index: 2; }
-
-.room-photo {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover;
-  /* Biased hard to the bottom so the सीट १४ plate — the single strongest
-     recognition detail in the frame — stays in shot. It sits at ~92% of the
-     image height, so anything less than this crops it off entirely. */
-  object-position: 50% 88%;
-  display: block;
+/* Base colour is the artwork's darkest tone, so the moment before the image
+   decodes reads as "the room, still loading" rather than a flash of something
+   else. There is no placeholder illustration — it only ever existed to be
+   replaced, and replacing it *was* the flash. */
+.scene {
+  position: fixed; inset: 0; z-index: 0;
+  background: var(--room-base) center 88% / cover no-repeat;
   animation: settle 0.5s ease-out;
-}
-@media (orientation: portrait) {
-  /* Portrait crops more aggressively, so it needs to sit even lower. */
-  .room-photo { object-position: 50% 96%; }
-}
-@keyframes settle { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .room-photo { animation: none; } }
 
-/* Scrims, tuned to this photograph rather than generically.
-   The room is already dark, so the job here is local: lift contrast behind the
-   title, and knock back the notebook, which is the brightest thing in the frame
-   and sits exactly where the player pill lands. */
+  /* Phones retract the URL bar as you interact, which grows the *visual*
+     viewport beyond the *layout* viewport that a fixed element is sized
+     against — leaving a strip of body background showing at an edge. `lvh` is
+     the viewport measured with browser UI retracted, so this always covers.
+     Cannot be reproduced in a desktop pane; only shows on a real device. */
+  height: 100lvh;
+  min-height: 100%;
+  width: 100lvw;
+  min-width: 100%;
+}
+.bar, .title, .dock { z-index: 2; }
+@keyframes settle { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .scene { animation: none; } }
+
+/* One block per theme. `image-set` picks AVIF where supported and WebP
+   otherwise; the orientation query picks the crop. The browser downloads only
+   the rule that matches, so three unused themes cost nothing.
+   Portrait is biased lower (96% vs 88%) because it crops harder, and the
+   सीट १४ plate sits at ~92% of the image height. */
+:root[data-theme="raat"]  .scene { background-image: image-set(url("./assets/room.avif") type("image/avif"), url("./assets/room.webp") type("image/webp")); }
+:root[data-theme="din"] .scene { background-image: image-set(url("./assets/din.avif") type("image/avif"), url("./assets/din.webp") type("image/webp")); }
+:root[data-theme="bahar"] .scene { background-image: image-set(url("./assets/bahar.avif") type("image/avif"), url("./assets/bahar.webp") type("image/webp")); }
+
+@media (orientation: portrait) {
+  .scene { background-position: center 96%; }
+  :root[data-theme="raat"]  .scene { background-image: image-set(url("./assets/room-portrait.avif") type("image/avif"), url("./assets/room-portrait.webp") type("image/webp")); }
+  :root[data-theme="din"] .scene { background-image: image-set(url("./assets/din-portrait.avif") type("image/avif"), url("./assets/din-portrait.webp") type("image/webp")); }
+  :root[data-theme="bahar"] .scene { background-image: image-set(url("./assets/bahar-portrait.avif") type("image/avif"), url("./assets/bahar-portrait.webp") type("image/webp")); }
+}
+
+/* Scrims. A night room needs almost none; a bright daylight photo needs a lot
+   or the white title is unreadable over it. This is the thing most likely to
+   make a new theme look broken, so it is a knob per theme rather than a
+   constant. */
+/* `--room-base` is what shows for the instant before the photo decodes, and in
+   the gap when rotating the device forces a fetch of the other orientation.
+   Near-black under a golden park photo reads as "broken"; a warm brown reads as
+   "still loading". */
+:root { --scrim-title: 0.52; --scrim-top: 0.55; --scrim-dock: 0.72; --scrim-vig: 0.42; --room-base: #0b0d12; }
+:root[data-scrim="warm"]   { --scrim-title: 0.58; --scrim-top: 0.58; --scrim-dock: 0.76; --scrim-vig: 0.48; --room-base: #241a12; }
+:root[data-scrim="bright"] { --scrim-title: 0.70; --scrim-top: 0.62; --scrim-dock: 0.84; --scrim-vig: 0.58; --room-base: #2a2018; }
+
 .scene::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  /* behind the title */
   background:
-    radial-gradient(56% 32% at 50% 27%, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.22) 58%, transparent 100%),
+    /* behind the title */
+    radial-gradient(56% 32% at 50% 27%, rgba(0,0,0,var(--scrim-title)) 0%, rgba(0,0,0,calc(var(--scrim-title) * 0.42)) 58%, transparent 100%),
     /* top bar */
-    linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.12) 11%, transparent 18%),
+    linear-gradient(to bottom, rgba(0,0,0,var(--scrim-top)) 0%, rgba(0,0,0,0.12) 11%, transparent 18%),
     /* The dock, over the lit notebook. Darkest band sits *under* the dock rather
        than at the very bottom edge — the seat plate lives in that last strip and
        a heavy gradient there crushes it back out of sight. */
     linear-gradient(to top,
-      rgba(0,0,0,0.34) 0%,
-      rgba(0,0,0,0.42) 5%,
-      rgba(0,0,0,0.72) 13%,
-      rgba(0,0,0,0.40) 24%,
+      rgba(0,0,0,calc(var(--scrim-dock) * 0.47)) 0%,
+      rgba(0,0,0,calc(var(--scrim-dock) * 0.58)) 5%,
+      rgba(0,0,0,var(--scrim-dock)) 13%,
+      rgba(0,0,0,calc(var(--scrim-dock) * 0.55)) 24%,
       transparent 38%),
     /* gentle overall vignette */
-    radial-gradient(132% 104% at 50% 56%, transparent 42%, rgba(0,0,0,0.42) 100%);
+    radial-gradient(132% 104% at 50% 56%, transparent 42%, rgba(0,0,0,var(--scrim-vig)) 100%);
 }
 
 /* ---------- chrome ---------- */
@@ -87,7 +109,34 @@ html, body {
   padding: max(16px, env(safe-area-inset-top)) 20px 12px;
   font-size: 13px; color: var(--dim);
 }
-.bar .left   { justify-self: start; }
+.bar .left   { justify-self: start; display: flex; align-items: center; gap: 10px; }
+/* Quieter than a dock chip — this is ambient chrome, not a primary control. */
+.chip.tiny {
+  padding: 3px 10px; font-size: 11.5px;
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+  color: var(--dim);
+}
+.chip.tiny:hover { color: var(--ink); background: rgba(255,255,255,0.12); }
+.chip.tiny[aria-expanded="true"] { color: var(--warm); border-color: rgba(240,184,114,0.4); }
+
+/* Theme chooser. A popover rather than a cycling tap so the options are
+   actually visible — you shouldn't have to tap blind to discover what exists. */
+.bar .left { position: relative; }
+/* `.pill.menu`, not `.menu` — .pill is defined later in this file and its
+   border-radius:999px was winning, which made the dropdown a stadium blob. */
+.pill.menu {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 3;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px; border-radius: 14px; min-width: 116px;
+}
+.menu button {
+  background: none; border: 0; cursor: pointer; text-align: left;
+  color: var(--dim); border-radius: 9px; padding: 7px 12px;
+  font: inherit; font-size: 12.5px; white-space: nowrap;
+}
+.menu button:hover { background: rgba(255,255,255,0.08); color: var(--ink); }
+.menu button[aria-selected="true"] { color: var(--warm); background: rgba(240,184,114,0.14); }
 .bar .centre { justify-self: center; }
 .bar .right  { justify-self: end; }
 .presence { display: inline-flex; align-items: center; gap: 7px; }
@@ -131,7 +180,7 @@ html, body {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   /* Lifted off the bottom edge so a strip of desk — and the seat plate — stays
      visible beneath the dock rather than being covered by it. */
-  padding: 0 16px calc(78px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(46px + env(safe-area-inset-bottom));
 }
 .pill {
   background: var(--glass);
@@ -149,6 +198,46 @@ html, body {
 }
 .cover { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
 .meta { flex: 1; min-width: 0; }
+
+/* The track title doubles as the button that opens the playlist. */
+.metabtn {
+  display: block; width: 100%; text-align: left;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: inherit; font: inherit; min-width: 0;
+}
+.metabtn .track, .metabtn .artist { display: block; }
+.metabtn:hover .track { color: var(--warm); }
+
+/* The playlist. Capped so it never swamps the photograph, and scrolls inside
+   itself rather than pushing the dock off screen on a short landscape tablet. */
+.pill.list {
+  width: min(560px, 100%);
+  max-height: min(46vh, 340px);
+  overflow-y: auto;
+  padding: 8px;
+  border-radius: 22px;
+  -webkit-overflow-scrolling: touch;
+}
+/* Page-level, under the dock. Deliberately the quietest thing on screen — it
+   should be findable when you go looking and invisible when you are not. */
+.suggest {
+  color: rgba(231, 236, 244, 0.42);
+  font-size: 11.5px; text-decoration: none;
+  padding: 2px 10px; letter-spacing: 0.01em;
+  text-shadow: 0 1px 12px rgba(0,0,0,0.8);
+}
+.suggest:hover { color: var(--warm); }
+.list button {
+  display: flex; align-items: baseline; gap: 10px; width: 100%;
+  background: none; border: 0; cursor: pointer; text-align: left;
+  color: var(--dim); border-radius: 12px; padding: 8px 12px;
+  font: inherit; font-size: 13px;
+}
+.list button:hover { background: rgba(255,255,255,0.07); color: var(--ink); }
+.list button[aria-selected="true"] { color: var(--warm); background: rgba(240,184,114,0.12); }
+.list .n { flex: 0 0 auto; font-size: 11px; opacity: 0.55; min-width: 16px; }
+.list .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list .a { flex: 0 0 auto; font-size: 11px; opacity: 0.6; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .track {
   font-size: 14px; font-weight: 600; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
@@ -157,8 +246,19 @@ html, body {
   font-size: 12px; color: var(--dim); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; margin-top: 1px;
 }
-.bar-wrap { height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; margin-top: 7px; }
-.bar-fill { height: 100%; width: 0; background: var(--warm); border-radius: 2px; transition: width 0.4s linear; }
+/* The visible bar is 3px, which is far too small to hit — especially with a
+   thumb. Padding gives it a ~15px target while `background-clip: content-box`
+   keeps the padding transparent, so it looks unchanged. */
+.bar-wrap {
+  height: 3px; border-radius: 2px; margin-top: 7px;
+  padding: 6px 0; background: rgba(255,255,255,0.12) content-box;
+  box-sizing: content-box; cursor: pointer; touch-action: none;
+}
+.bar-wrap:hover { background-color: rgba(255,255,255,0.2); }
+.bar-fill {
+  height: 3px; width: 0; background: var(--warm);
+  border-radius: 2px; transition: width 0.4s linear;
+}
 
 .controls { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .controls button {
@@ -180,6 +280,26 @@ html, body {
 }
 .chip:hover { background: rgba(255,255,255,0.1); }
 .chip[aria-pressed="true"] { background: rgba(240,184,114,0.16); border-color: rgba(240,184,114,0.4); color: var(--warm); }
+
+/* Segmented controls — mood and theme. A segment rather than separate chips so
+   it reads as "one of these", not "two things you can switch on". */
+.seg {
+  display: inline-flex; align-items: center;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--edge);
+  border-radius: 999px; padding: 2px;
+}
+.segbtn {
+  background: none; border: 0; cursor: pointer;
+  color: var(--dim); border-radius: 999px;
+  padding: 5px 12px; font: inherit; font-size: 12.5px;
+  transition: background 0.18s, color 0.18s;
+}
+.segbtn:hover { color: var(--ink); }
+.segbtn[aria-pressed="true"] {
+  background: rgba(240,184,114,0.18);
+  color: var(--warm);
+}
 .chip.active { background: rgba(240,184,114,0.16); border-color: rgba(240,184,114,0.4); color: var(--warm); }
 .timer { font: 600 14px ui-monospace, Menlo, monospace; color: var(--warm); padding: 0 8px; }
 

@@ -32,6 +32,8 @@ function loadAPI() {
 
 export function createPlayer({ hostId, tracks, onChange }) {
   let yt = null, index = 0, ready = false, playing = false, failed = false;
+  // `tracks` is reassigned by setTracks() when the mood changes, so everything
+  // below reads it through the closure rather than capturing a snapshot.
 
   const current = () => tracks[index] || null;
   const emit = () => onChange?.({
@@ -77,16 +79,49 @@ export function createPlayer({ hostId, tracks, onChange }) {
 
   const next = () => load(index + 1, true);
   const prev = () => load(index - 1, true);
+  const playIndex = (i) => load(i, true);
 
   return {
     init,
-    next, prev,
+    next, prev, playIndex,
+    get index() { return index; },
+    get tracks() { return tracks; },
+
+    // Swap playlists in place. Keeps playing if it already was, so changing
+    // mood mid-session doesn't dump you into silence — it just changes what
+    // comes next.
+    setTracks(list) {
+      if (!list || !list.length) return;
+      const wasPlaying = playing;
+      tracks = list;
+      index = 0;
+      failed = false;
+      if (ready) {
+        yt[wasPlaying ? 'loadVideoById' : 'cueVideoById'](tracks[0].id);
+      }
+      emit();
+    },
     toggle() {
       if (!ready) return;
       playing ? yt.pauseVideo() : yt.playVideo();
     },
     play() { if (ready) yt.playVideo(); },
     pause() { if (ready) yt.pauseVideo(); },
+
+    // Scrub to a fraction (0–1) of the track.
+    seek(fraction) {
+      if (!ready || !yt.getDuration) return;
+      const d = yt.getDuration();
+      if (!d) return;
+      yt.seekTo(Math.max(0, Math.min(1, fraction)) * d, true);
+      emit();
+    },
+
+    // The URL of what is playing, for the "watch on YouTube" link.
+    currentUrl() {
+      const t = current();
+      return t ? `https://www.youtube.com/watch?v=${t.id}` : null;
+    },
     setVolume(v) { if (ready) yt.setVolume(Math.round(v * 100)); },
     poll() { if (ready) emit(); },
     get failed() { return failed; },

@@ -2,40 +2,22 @@
 // longer wired in. It competed with the music rather than sitting under it. The
 // module is still in the repo and works; re-import it here to bring it back.
 import { createPlayer } from './player.js';
-import { TRACKS, LINES, PLAYLIST_LINKS, PRESENCE_ENDPOINT } from './tracks.js';
+import { MOODS, LINES, PLAYLIST_LINKS, PRESENCE_ENDPOINT, SUGGEST_EMAIL } from './tracks.js';
+import { THEMES, READY } from './themes.js';
 
 const $ = (id) => document.getElementById(id);
 
 /* ---------- artwork ---------- */
 //
-// The picture element in index.html does the loading and the orientation
-// choice. This is only a sanity check, because a decodable file is not the same
-// as a usable one: `sips` will happily emit an AVIF that is entirely black —
-// valid container, correct dimensions, fires `onload` — and the page then shows
-// nothing, with no error anywhere. (Cause, for the record: an odd pixel width
-// breaks chroma subsampling in the AV1 encoder. Re-encode at an even width.)
+// There is no <img> any more: the room is a CSS background chosen by
+// [data-theme], set by the inline script in index.html before first paint. That
+// is what keeps exactly one image downloaded and no wrong-image flash.
 //
-// It only warns. Swapping sources at runtime is what used to delay the artwork
-// until after main.js had parsed, which is exactly the flash we removed.
-function checkArtwork() {
-  const img = $('roomPhoto');
-  if (!img.naturalWidth) return;
-  try {
-    const c = document.createElement('canvas');
-    c.width = 32; c.height = 32;
-    const g = c.getContext('2d', { willReadFrequently: true });
-    g.drawImage(img, 0, 0, 32, 32);
-    const d = g.getImageData(0, 0, 32, 32).data;
-    let max = 0;
-    for (let i = 0; i < d.length; i += 4) {
-      const v = (d[i] + d[i + 1] + d[i + 2]) / 3;
-      if (v > max) max = v;
-    }
-    if (max < 8) console.warn(`[artwork] ${img.currentSrc} decoded to a blank image — re-encode it at an even pixel width`);
-  } catch { /* canvas unavailable; nothing to check */ }
-}
-const roomImg = $('roomPhoto');
-roomImg.complete ? checkArtwork() : roomImg.addEventListener('load', checkArtwork, { once: true });
+// The old runtime "is this AVIF actually black?" guard went with it — you cannot
+// sample a background's pixels without fetching the file a second time. The
+// failure it caught is real but belongs at encode time, so it is documented in
+// ART.md instead: encode at an EVEN pixel width or sips emits a valid, entirely
+// black AVIF.
 
 /* ---------- clock ---------- */
 
@@ -142,13 +124,20 @@ $('t25').addEventListener('click', (e) => startTimer(25, e.currentTarget));
 
 /* ---------- music ---------- */
 
+const savedMood = (() => {
+  try { return localStorage.getItem('sankalp.mood'); } catch { return null; }
+})();
+let mood = MOODS[savedMood] ? savedMood : 'josh';
+let wasPlaying = false;
+
 const player = createPlayer({
   hostId: 'ytHost',
-  tracks: TRACKS,
+  tracks: MOODS[mood].tracks,
   onChange({ track, ready, playing, failed, duration, position }) {
     if (failed || !track) {
-      $('trackTitle').textContent = TRACKS.length ? 'चल नहीं पाया' : 'कुछ नहीं चल रहा';
-      $('trackArtist').textContent = TRACKS.length
+      const n = MOODS[mood].tracks.length;
+      $('trackTitle').textContent = n ? 'चल नहीं पाया' : 'कुछ नहीं चल रहा';
+      $('trackArtist').textContent = n
         ? 'YouTube तक नहीं पहुँच पाए'
         : 'add track IDs in tracks.js';
       $('play').disabled = true;
@@ -157,6 +146,12 @@ const player = createPlayer({
     }
     $('trackTitle').textContent = track.title || '—';
     $('trackArtist').textContent = track.artist || '';
+    // Close the list when playback STARTS — on the false→true edge only.
+    // Testing `playing` alone closed it on every poll tick, so opening the list
+    // while music was already running shut it again a second later: a blink.
+    if (playing && !wasPlaying && !$('tracklist').hidden) toggleList(false);
+    wasPlaying = playing;
+
     $('play').textContent = playing ? '❚❚' : '▶';
     $('play').disabled = !ready;
     if (track.id) {
@@ -165,19 +160,101 @@ const player = createPlayer({
       cover.hidden = false;
     }
     $('progress').style.width = duration ? `${(position / duration) * 100}%` : '0%';
+
+    if (!$('tracklist').hidden) {
+      $('tracklist').querySelectorAll('button[data-i]').forEach((b) => {
+        b.setAttribute('aria-selected', String(+b.dataset.i === player.index));
+      });
+    }
+
+    // Top-right link opens whatever is playing, the way saloon.wtf links out to
+    // its playlist. Pointing at the current track rather than a playlist means
+    // there is nothing to maintain and it is never out of date.
+    const url = player.currentUrl();
+    if (url && !$('ytLink').dataset.pinned) {
+      $('ytLink').href = url;
+      $('ytLink').hidden = false;
+    }
   }
 });
 
 player.init();
 setInterval(() => player.poll(), 1000);
 
+// Scrub by clicking or dragging the progress bar. The bar itself is only 3px,
+// so the hit target is its wrapper, which is padded out in CSS.
+const barWrap = document.querySelector('.bar-wrap');
+function seekFromEvent(e) {
+  const r = barWrap.getBoundingClientRect();
+  player.seek((e.clientX - r.left) / r.width);
+}
+barWrap.addEventListener('pointerdown', (e) => {
+  barWrap.setPointerCapture(e.pointerId);
+  seekFromEvent(e);
+});
+barWrap.addEventListener('pointermove', (e) => {
+  if (barWrap.hasPointerCapture(e.pointerId)) seekFromEvent(e);
+});
+
+/* ---------- the playlist ---------- */
+// Only the current track was ever visible, so there was no way to know what
+// else was in the set. Hidden by default — 23 rows permanently on screen would
+// swamp the photograph.
+
+function renderList() {
+  const list = $('tracklist');
+  const tracks = MOODS[mood].tracks;
+  list.innerHTML = tracks.map((t, i) => `
+    <button role="option" data-i="${i}" aria-selected="${i === player.index}">
+      <span class="n">${i + 1}</span>
+      <span class="t">${t.title}</span>
+      <span class="a">${t.artist || ''}</span>
+    </button>`).join('');
+}
+
+function toggleList(force) {
+  const list = $('tracklist');
+  const open = force !== undefined ? force : list.hidden;
+  if (open) renderList();
+  list.hidden = !open;
+  $('listToggle').setAttribute('aria-expanded', String(open));
+  if (open) list.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+}
+
+$('listToggle').addEventListener('click', () => toggleList());
+$('tracklist').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-i]');
+  if (!b) return;
+  player.playIndex(+b.dataset.i);
+  toggleList(false);
+});
+
 $('play').addEventListener('click', () => player.toggle());
 $('next').addEventListener('click', () => player.next());
 $('prev').addEventListener('click', () => player.prev());
 
+// PLAYLIST_LINKS is still honoured, but only as an override — if you make a
+// real YT Music playlist, that wins over the per-track link.
 if (PLAYLIST_LINKS.ytMusic) {
   const a = $('ytLink');
   a.href = PLAYLIST_LINKS.ytMusic;
+  a.textContent = 'YT Music ↗';
+  a.hidden = false;
+  a.dataset.pinned = 'true';
+}
+
+/* ---------- song suggestions ---------- */
+// A footer link rather than something inside the playlist panel. Buried in the
+// list it needed two interactions to find, and nobody opens a track list in
+// order to suggest a track — the thought arrives on its own.
+
+if (SUGGEST_EMAIL) {
+  const a = $('suggest');
+  const subject = encodeURIComponent('संकल्प — गाना सुझाव');
+  // Prefilled, because a bare "add this song" with no link and no reason is
+  // not actionable.
+  const body = encodeURIComponent('ये गाना डाल दीजिए:\n\nYouTube link: \n\nक्यों: \n');
+  a.href = `mailto:${SUGGEST_EMAIL}?subject=${subject}&body=${body}`;
   a.hidden = false;
 }
 
@@ -225,5 +302,92 @@ pollPresence();
 // 1M/month free tier — see the note in presence-server/presence-worker.js.
 setInterval(pollPresence, 60000);
 
+/* ---------- mood ---------- */
+
+function paintMood() {
+  document.querySelectorAll('#moods .segbtn').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.mood === mood));
+  });
+}
+
+document.getElementById('moods').addEventListener('click', (e) => {
+  const btn = e.target.closest('.segbtn');
+  if (!btn || btn.dataset.mood === mood) return;
+  mood = btn.dataset.mood;
+  try { localStorage.setItem('sankalp.mood', mood); } catch {}
+  paintMood();
+  player.setTracks(MOODS[mood].tracks);
+  if (!$('tracklist').hidden) renderList();
+});
+paintMood();
+
+/* ---------- theme ---------- */
+//
+// The inline script in index.html has already applied a theme before first
+// paint. This only builds the picker.
+//
+// It lists THEMES marked `ready` rather than probing for the files. Probing
+// meant three or four 404s on every single load, and it could not help the
+// initial pick anyway — that has to happen synchronously before paint.
+
+const SCRIM = Object.fromEntries(THEMES.map((t) => [t.id, t.scrim]));
+
+const PLACE = Object.fromEntries(THEMES.map((t) => [t.id, t.place || 'लाइब्रेरी']));
+
+function applyTheme(id, remember) {
+  document.documentElement.dataset.theme = id;
+  document.documentElement.dataset.scrim = SCRIM[id] || 'dark';
+  // The second line of the title is the place, not part of the name. "संकल्प
+  // लाइब्रेरी" over a photograph of a park is the kind of small wrongness people
+  // notice without being able to say why, so the park calls itself संकल्प पार्क.
+  $('place').textContent = PLACE[id] || 'लाइब्रेरी';
+  if (remember) { try { localStorage.setItem('sankalp.theme', id); } catch {} }
+  document.querySelectorAll('#themes .segbtn').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.theme === id));
+  });
+}
+
+$('place').textContent = PLACE[document.documentElement.dataset.theme] || 'लाइब्रेरी';
+
+(function buildThemeMenu() {
+  // One theme is just the current state of things — nothing to switch between.
+  if (READY.length < 2) return;
+
+  const btn = $('themeCycle');
+  const menu = $('themeMenu');
+
+  const paint = () => {
+    const id = document.documentElement.dataset.theme;
+    const cur = READY.find((t) => t.id === id) || READY[0];
+    btn.textContent = cur.label;
+    menu.querySelectorAll('button').forEach((b) => {
+      b.setAttribute('aria-selected', String(b.dataset.theme === id));
+    });
+  };
+
+  menu.innerHTML = READY.map((t) =>
+    `<button role="option" data-theme="${t.id}">${t.label}</button>`).join('');
+  btn.hidden = false;
+  paint();
+
+  const open = (yes) => {
+    menu.hidden = !yes;
+    btn.setAttribute('aria-expanded', String(yes));
+  };
+
+  btn.addEventListener('click', (e) => { e.stopPropagation(); open(menu.hidden); });
+  menu.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-theme]');
+    if (!b) return;
+    applyTheme(b.dataset.theme, true);
+    paint();
+    open(false);
+  });
+  // Tapping anywhere else closes it — a popover you cannot dismiss by looking
+  // away is worse than no popover.
+  document.addEventListener('click', () => { if (!menu.hidden) open(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') open(false); });
+})();
+
 // Test hook, same pattern as the flight prototype.
-window.__room = { player, startTimer, stopTimer, finishTimer, setLine };
+window.__room = { player, startTimer, stopTimer, finishTimer, setLine, applyTheme, get mood() { return mood; } };

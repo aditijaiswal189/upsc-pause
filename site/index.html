@@ -32,55 +32,93 @@
 
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./favicon.svg">
+
+<!-- Theme is chosen BEFORE the stylesheet is applied, so the browser downloads
+     exactly one room image and never paints the wrong one first. This is why it
+     is an inline script in the head and not part of main.js — anything deferred
+     would mean a visible swap.
+     Kept deliberately tiny and dependency-free; it duplicates a little of
+     themes.js rather than importing it, because a module import here would
+     delay first paint. -->
+<script>
+(function () {
+  // ⚠ HAVE lists the themes whose artwork actually exists in assets/. Add an id
+  //   here at the same time as you flip `ready` in themes.js — the two must
+  //   agree. Picking by hour alone showed a blank room to anyone visiting during
+  //   a time of day whose art had not been made yet.
+  var HAVE  = ['bahar', 'din', 'raat'];
+  var HOURS = { bahar:[5,6,7,8,9], din:[10,11,12,13,14,15,16,17,18],
+                raat:[19,20,21,22,23,0,1,2,3,4] };
+  var SCRIM = { bahar:'bright', din:'bright', raat:'dark' };
+
+  var saved = null;
+  try { saved = localStorage.getItem('sankalp.theme'); } catch (e) {}
+
+  var id = (saved && HAVE.indexOf(saved) > -1) ? saved : null;
+  if (!id) {
+    var h = new Date().getHours();
+    for (var i = 0; i < HAVE.length; i++) {
+      if (HOURS[HAVE[i]] && HOURS[HAVE[i]].indexOf(h) > -1) { id = HAVE[i]; break; }
+    }
+  }
+  id = id || HAVE[0] || 'raat';   // nothing matches this hour yet → fall back
+  document.documentElement.dataset.theme = id;
+  document.documentElement.dataset.scrim = SCRIM[id] || 'dark';
+})();
+</script>
+
 <link rel="stylesheet" href="./styles.css">
 
 <!-- Vercel Web Analytics. Cookieless, so no consent banner — which matters on
-     a page whose whole promise is that it does not ask anything of you.
-     Enable Analytics in the Vercel dashboard or this 404s silently. -->
+     a page whose whole promise is that it does not ask anything of you. -->
 <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
-<!-- The room.
-     In the HTML, not loaded from JS, so the browser's preload scanner starts
-     fetching it while it is still parsing the head — in parallel with the CSS
-     and the module. Loading it from JavaScript meant the request could not
-     begin until main.js had run, and the placeholder underneath was on screen
-     for the whole of that download.
-     <picture> also does the orientation choice natively, so no resize listener. -->
-<div class="scene" aria-hidden="true">
-  <picture>
-    <source media="(orientation: portrait)" type="image/avif" srcset="./assets/room-portrait.avif">
-    <source media="(orientation: portrait)" type="image/webp" srcset="./assets/room-portrait.webp">
-    <source type="image/avif" srcset="./assets/room.avif">
-    <source type="image/webp" srcset="./assets/room.webp">
-    <img id="roomPhoto" class="room-photo" src="./assets/room.webp" alt="" decoding="async" fetchpriority="high">
-  </picture>
-</div>
+
+<!-- The room. The image comes from CSS, selected by [data-theme] above, so only
+     the matching one is ever fetched. -->
+<div class="scene" aria-hidden="true"></div>
+
 <!-- top bar -->
 <header class="bar">
-  <div class="left"><span id="clock">—</span></div>
+  <div class="left">
+    <span id="clock">—</span>
+    <!-- Theme sits by the clock because it *is* the time of day, and because it
+         is the least important control here — it already matches the hour, so
+         most people will never touch it. One cycling chip rather than a segment:
+         three more buttons in the dock crowded out the player on a phone. -->
+    <button id="themeCycle" class="chip tiny" hidden aria-expanded="false" aria-controls="themeMenu"></button>
+    <div class="pill menu" id="themeMenu" hidden role="listbox" aria-label="जगह"></div>
+  </div>
   <div class="centre">
     <span class="presence" id="presence" hidden><i class="dot"></i><b id="onlineCount">—</b> साथ में</span>
   </div>
   <div class="right">
-    <a id="ytLink" href="#" target="_blank" rel="noopener noreferrer" hidden>YT Music ↗</a>
+    <a id="ytLink" href="#" target="_blank" rel="noopener noreferrer" hidden>YouTube ↗</a>
   </div>
 </header>
 
 <!-- title -->
 <main class="title">
-  <h1>संकल्प<br>लाइब्रेरी</h1>
+  <h1>संकल्प<br><span id="place">लाइब्रेरी</span></h1>
   <p class="line" id="line">थोड़ी देर बैठ जा।</p>
 </main>
 
 <!-- bottom controls -->
 <footer class="dock">
+  <!-- The whole playlist. Hidden until asked for — 23 tracks permanently on
+       screen would swamp the photograph, but with only the current track
+       visible there was no way to know what else was in there. -->
+  <div class="pill list" id="tracklist" hidden role="listbox" aria-label="गाने"></div>
+
   <div class="pill player" id="playerPill">
     <img id="cover" class="cover" alt="" hidden>
     <div class="meta">
-      <div class="track" id="trackTitle">कुछ नहीं चल रहा</div>
-      <div class="artist" id="trackArtist">add track IDs in tracks.js</div>
+      <button class="metabtn" id="listToggle" aria-expanded="false" aria-controls="tracklist">
+        <span class="track" id="trackTitle">कुछ नहीं चल रहा</span>
+        <span class="artist" id="trackArtist">add track IDs in tracks.js</span>
+      </button>
       <div class="bar-wrap"><div class="bar-fill" id="progress"></div></div>
     </div>
     <div class="controls">
@@ -91,10 +129,19 @@
   </div>
 
   <div class="pill row">
+    <!-- Two moods. The anthems are what most aspirants reach for; the quiet set
+         is for the ones who cannot think with someone shouting at them. -->
+    <span class="seg" id="moods" role="group" aria-label="Music">
+      <button class="segbtn" data-mood="josh" aria-pressed="true">जोश</button>
+      <button class="segbtn" data-mood="shaant" aria-pressed="false">शांत</button>
+    </span>
     <button id="t15" class="chip">15 मिनट</button>
     <button id="t25" class="chip">25 मिनट</button>
     <span class="timer" id="timer" hidden>—</span>
   </div>
+
+  <!-- Quiet, always visible, no panel to open first. -->
+  <a class="suggest" id="suggest" href="#" hidden>गाना सुझाओ ↗</a>
 </footer>
 
 <div id="ytHost" class="yt-host"></div>
